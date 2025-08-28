@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Análise Interativa de Filtros de Imagem</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chosen Palette: Warm Neutrals with Teal Accent -->
+    <!-- Application Structure Plan: A single-page application with a fixed sidebar navigation for direct access to thematic sections. Each section is dedicated to one image processing filter from the report. This structure breaks down the dense academic content into digestible, interactive modules, prioritizing user exploration and hands-on learning over passive reading. Each filter section follows a consistent layout: an introduction, an interactive demo (with controls like sliders where applicable), and a detailed explanation of the underlying algorithm and mathematics. This non-linear, modular approach was chosen for its superior usability and educational effectiveness in conveying complex technical concepts. -->
+    <!-- Visualization & Content Choices: Report Info -> Grayscale, Invert, Blur, Canny Edge Detection. Goal -> Explain and demonstrate each algorithm interactively. Viz/Presentation Method -> For each filter, a side-by-side canvas shows the 'before' and 'after' state. Explanations and formulas from the report are presented in clean, readable text blocks. For the multi-step Canny algorithm, a structured HTML/CSS flow diagram is used. Interaction -> Sliders are implemented for Gaussian Blur (kernel size) and Canny Edges (thresholds) to allow users to manipulate parameters and see real-time results, directly connecting theory to practice. Justification -> This approach makes abstract formulas and processes tangible and intuitive. Library/Method -> All visualizations are rendered on HTML <canvas> elements manipulated directly with vanilla JavaScript for pixel-level control, which is ideal for demonstrating image processing effects. -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <style>
+        :root {
+            --bg-main: #F5F5F4; /* stone-100 */
+            --bg-card: #FFFFFF;
+            --text-primary: #292524; /* stone-800 */
+            --text-secondary: #57534E; /* stone-600 */
+            --accent: #14B8A6; /* teal-500 */
+            --accent-dark: #0D9488; /* teal-600 */
+            --border-color: #E7E5E4; /* stone-200 */
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-main);
+            color: var(--text-primary);
+        }
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&family=Roboto+Mono:wght@400;500&display=swap');
+        .font-mono {
+            font-family: 'Roboto Mono', monospace;
+        }
+        .nav-link {
+            transition: all 0.2s ease-in-out;
+            border-left: 3px solid transparent;
+        }
+        .nav-link.active {
+            border-left-color: var(--accent);
+            background-color: #E7E5E4;
+            color: var(--accent-dark);
+            font-weight: 600;
+        }
+        .nav-link:hover {
+            background-color: #E7E5E4;
+        }
+        .formula {
+            background-color: #F5F5F4;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            border: 1px solid var(--border-color);
+            font-family: 'Roboto Mono', monospace;
+            text-align: center;
+            font-size: 1.1rem;
+            color: var(--text-secondary);
+        }
+        .canvas-container {
+            position: relative;
+            width: 100%;
+            max-width: 500px;
+            margin-left: auto;
+            margin-right: auto;
+            height: auto;
+            aspect-ratio: 4 / 3;
+            max-height: 400px;
+        }
+        canvas {
+            border: 1px solid var(--border-color);
+            border-radius: 0.5rem;
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+    </style>
+</head>
+<body class="antialiased">
+
+    <div class="flex flex-col md:flex-row min-h-screen">
+        <aside class="w-full md:w-64 bg-white border-r border-stone-200 p-4 md:p-6 sticky top-0 md:h-screen">
+            <h1 class="text-xl font-bold text-teal-600">Análise de Filtros</h1>
+            <p class="text-sm text-stone-500 mt-1 mb-6">Um Resumo Interativo</p>
+            <nav id="navigation" class="flex flex-row md:flex-col -mx-4 md:mx-0 overflow-x-auto">
+                <a href="#intro" class="nav-link active text-stone-700 px-4 py-2.5 text-sm font-medium whitespace-nowrap">Introdução</a>
+                <a href="#grayscale" class="nav-link text-stone-700 px-4 py-2.5 text-sm font-medium whitespace-nowrap">Escala de Cinza</a>
+                <a href="#invert" class="nav-link text-stone-700 px-4 py-2.5 text-sm font-medium whitespace-nowrap">Inversão de Cores</a>
+                <a href="#blur" class="nav-link text-stone-700 px-4 py-2.5 text-sm font-medium whitespace-nowrap">Borrado Gaussiano</a>
+                <a href="#edges" class="nav-link text-stone-700 px-4 py-2.5 text-sm font-medium whitespace-nowrap">Detecção de Bordas</a>
+            </nav>
+        </aside>
+
+        <main class="flex-1 p-4 sm:p-6 md:p-10">
+            <img id="sourceImage" src="https://placehold.co/800x600/65c3c8/FFFFFF?text=Imagem+de+Exemplo" class="hidden" alt="Imagem de exemplo para processamento">
+            
+            <section id="intro" class="mb-12 scroll-mt-20">
+                <h2 class="text-3xl font-bold mb-4">Processamento de Imagens: Uma Análise Algorítmica</h2>
+                <p class="text-stone-600 leading-relaxed max-w-3xl">
+                    A manipulação digital de imagens é um pilar da ciência da computação moderna. Este relatório interativo explora as bases algorítmicas de quatro operações fundamentais: conversão para escala de cinza, inversão de cores, filtro de borrado e detecção de bordas. Cada seção detalha os princípios matemáticos e lógicos por trás de cada filtro, permitindo uma compreensão clara de como o software atua sobre a matriz de pixels para produzir o resultado desejado.
+                </p>
+                 <div class="mt-8 p-6 bg-white rounded-lg border border-stone-200 max-w-3xl">
+                    <h3 class="text-xl font-semibold mb-3">Fundamentos da Imagem Digital</h3>
+                    <p class="text-stone-600 leading-relaxed">
+                        Uma imagem digital colorida é uma grade de pixels. No OpenCV, cada pixel é representado por um trio de valores no formato BGR (Blue, Green, Red), onde cada valor (de 0 a 255) indica a intensidade daquele canal de cor. Matematicamente, a imagem é uma matriz onde cada elemento contém esses três valores de intensidade.
+                    </p>
+                </div>
+            </section>
+
+            <section id="grayscale" class="mb-12 scroll-mt-20">
+                <h2 class="text-3xl font-bold mb-4">Conversão para Escala de Cinza</h2>
+                <p class="text-stone-600 leading-relaxed max-w-3xl mb-8">
+                    Esta operação converte uma imagem colorida em uma representação monocromática, onde cada pixel representa uma intensidade de brilho (luminância). Em vez de simplesmente usar a média dos canais de cor, uma média ponderada é aplicada para melhor corresponder à percepção humana, que é mais sensível à luz verde.
+                </p>
+                <div class="grid md:grid-cols-2 gap-8 items-start">
+                    <div class="bg-white p-6 rounded-lg border border-stone-200">
+                        <h3 class="text-lg font-semibold text-center mb-4">Demonstração</h3>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <p class="text-center text-sm text-stone-500 mb-2">Original</p>
+                                <div class="canvas-container"><canvas id="grayscale-original"></canvas></div>
+                            </div>
+                            <div>
+                                <p class="text-center text-sm text-stone-500 mb-2">Escala de Cinza</p>
+                                <div class="canvas-container"><canvas id="grayscale-filtered"></canvas></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mt-0 md:mt-0">
+                        <h3 class="text-lg font-semibold mb-3">Como Funciona: A Fórmula da Luminância</h3>
+                        <p class="text-stone-600 mb-4">
+                            Para cada pixel, um novo valor de luminância (Y) é calculado a partir dos valores de Vermelho (R), Verde (G) e Azul (B) originais.
+                        </p>
+                        <div class="formula">Y = 0.299 * R + 0.587 * G + 0.114 * B</div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="invert" class="mb-12 scroll-mt-20">
+                <h2 class="text-3xl font-bold mb-4">Inversão de Cores (Negação)</h2>
+                <p class="text-stone-600 leading-relaxed max-w-3xl mb-8">
+                    A inversão de cores, ou "negativo", é uma operação matemática simples que inverte a intensidade de cada canal de cor. Cores claras se tornam escuras, e vice-versa, criando um efeito análogo ao de um negativo fotográfico.
+                </p>
+                <div class="grid md:grid-cols-2 gap-8 items-start">
+                    <div class="bg-white p-6 rounded-lg border border-stone-200">
+                        <h3 class="text-lg font-semibold text-center mb-4">Demonstração</h3>
+                        <div class="grid grid-cols-2 gap-4">
+                             <div>
+                                <p class="text-center text-sm text-stone-500 mb-2">Original</p>
+                                <div class="canvas-container"><canvas id="invert-original"></canvas></div>
+                            </div>
+                            <div>
+                                <p class="text-center text-sm text-stone-500 mb-2">Cores Invertidas</p>
+                                <div class="canvas-container"><canvas id="invert-filtered"></canvas></div>
+                            </div>
+                        </div>
+                    </div>
+                     <div class="mt-0 md:mt-0">
+                        <h3 class="text-lg font-semibold mb-3">Como Funciona: A Matemática da Inversão</h3>
+                        <p class="text-stone-600 mb-4">
+                            Para cada canal de cor (C) de um pixel, o novo valor é o máximo (255) menos o valor original. Isso é feito para os canais R, G e B independentemente.
+                        </p>
+                        <div class="formula">C<sub>novo</sub> = 255 - C<sub>original</sub></div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="blur" class="mb-12 scroll-mt-20">
+                <h2 class="text-3xl font-bold mb-4">Filtro de Borrado (Gaussian Blur)</h2>
+                <p class="text-stone-600 leading-relaxed max-w-3xl mb-8">
+                    A suavização, ou borrado, é usada para reduzir ruído e detalhes finos. O Borrado Gaussiano é uma técnica de convolução onde o valor de cada pixel é substituído por uma média ponderada dos pixels vizinhos. Os pesos são maiores para os pixels mais próximos, seguindo uma distribuição Gaussiana (curva de sino).
+                </p>
+                <div class="grid md:grid-cols-2 gap-8 items-start">
+                    <div class="bg-white p-6 rounded-lg border border-stone-200">
+                        <h3 class="text-lg font-semibold text-center mb-4">Demonstração Interativa</h3>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <p class="text-center text-sm text-stone-500 mb-2">Original</p>
+                                <div class="canvas-container"><canvas id="blur-original"></canvas></div>
+                            </div>
+                            <div>
+                                <p class="text-center text-sm text-stone-500 mb-2">Borrado</p>
+                                <div class="canvas-container"><canvas id="blur-filtered"></canvas></div>
+                            </div>
+                        </div>
+                        <div class="mt-6">
+                            <label for="blur-slider" class="block text-sm font-medium text-stone-600">Intensidade do Borrado: <span id="blur-value" class="font-bold text-teal-600">5</span></label>
+                            <input id="blur-slider" type="range" min="1" max="25" value="5" step="2" class="w-full h-2 bg-stone-200 rounded-lg appearance-none cursor-pointer accent-teal-500">
+                        </div>
+                    </div>
+                     <div class="mt-0 md:mt-0">
+                        <h3 class="text-lg font-semibold mb-3">Como Funciona: Convolução com Kernel</h3>
+                        <p class="text-stone-600 mb-4">
+                            O filtro desliza uma matriz chamada "kernel" sobre a imagem. O valor do pixel central é recalculado com base nos valores dos vizinhos, ponderados pelos valores do kernel. Um kernel maior resulta em um borrado mais intenso. Esta demonstração usa um "Box Blur", uma aproximação que calcula a média simples dos vizinhos para fins de eficiência.
+                        </p>
+                    </div>
+                </div>
+            </section>
+
+            <section id="edges" class="scroll-mt-20">
+                <h2 class="text-3xl font-bold mb-4">Detecção de Bordas (Algoritmo de Canny)</h2>
+                <p class="text-stone-600 leading-relaxed max-w-3xl mb-8">
+                    A detecção de bordas identifica pontos de mudança abrupta na intensidade da imagem. O algoritmo de Canny é um método multi-etapas sofisticado que encontra bordas finas e contínuas com alta precisão.
+                </p>
+                <div class="grid md:grid-cols-2 gap-8 items-start">
+                    <div class="bg-white p-6 rounded-lg border border-stone-200">
+                        <h3 class="text-lg font-semibold text-center mb-4">Demonstração Interativa</h3>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <p class="text-center text-sm text-stone-500 mb-2">Original</p>
+                                <div class="canvas-container"><canvas id="edges-original"></canvas></div>
+                            </div>
+                            <div>
+                                <p class="text-center text-sm text-stone-500 mb-2">Bordas Detectadas</p>
+                                <div class="canvas-container"><canvas id="edges-filtered"></canvas></div>
+                            </div>
+                        </div>
+                        <div class="mt-6 space-y-4">
+                            <div>
+                                <label for="canny-low" class="block text-sm font-medium text-stone-600">Limiar Inferior: <span id="canny-low-value" class="font-bold text-teal-600">50</span></label>
+                                <input id="canny-low" type="range" min="0" max="255" value="50" class="w-full h-2 bg-stone-200 rounded-lg appearance-none cursor-pointer accent-teal-500">
+                            </div>
+                            <div>
+                                <label for="canny-high" class="block text-sm font-medium text-stone-600">Limiar Superior: <span id="canny-high-value" class="font-bold text-teal-600">100</span></label>
+                                <input id="canny-high" type="range" min="0" max="255" value="100" class="w-full h-2 bg-stone-200 rounded-lg appearance-none cursor-pointer accent-teal-500">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mt-0 md:mt-0">
+                        <h3 class="text-lg font-semibold mb-3">Como Funciona: O Processo Canny</h3>
+                        <ol class="list-decimal list-inside space-y-3 text-stone-600">
+                            <li><strong>Redução de Ruído:</strong> Um filtro de borrado suaviza a imagem.</li>
+                            <li><strong>Cálculo do Gradiente:</strong> Encontra a magnitude e direção das mudanças de intensidade.</li>
+                            <li><strong>Supressão de Não-Máximos:</strong> Afina as bordas para uma espessura de um pixel.</li>
+                            <li><strong>Limiarização por Histerese:</strong> Usa dois limiares (inferior e superior) para classificar bordas como fortes ou fracas, conectando-as para formar linhas contínuas. Ajuste os limiares para ver como isso afeta a detecção.</li>
+                        </ol>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const sourceImage = document.getElementById('sourceImage');
+    const sections = document.querySelectorAll('main section');
+    const navLinks = document.querySelectorAll('#navigation a');
+
+    const canvases = {
+        grayscale: { original: 'grayscale-original', filtered: 'grayscale-filtered' },
+        invert: { original: 'invert-original', filtered: 'invert-filtered' },
+        blur: { original: 'blur-original', filtered: 'blur-filtered' },
+        edges: { original: 'edges-original', filtered: 'edges-filtered' }
+    };
+
+    const contexts = {};
+    let originalImageData = null;
+
+    function initializeCanvases() {
+        for (const key in canvases) {
+            const originalCanvas = document.getElementById(canvases[key].original);
+            const filteredCanvas = document.getElementById(canvases[key].filtered);
+            if (originalCanvas && filteredCanvas) {
+                contexts[key] = {
+                    original: originalCanvas.getContext('2d'),
+                    filtered: filteredCanvas.getContext('2d'),
+                    originalCanvas,
+                    filteredCanvas
+                };
+            }
+        }
+        
+        const w = sourceImage.naturalWidth;
+        const h = sourceImage.naturalHeight;
+
+        for (const key in contexts) {
+            contexts[key].originalCanvas.width = w;
+            contexts[key].originalCanvas.height = h;
+            contexts[key].filteredCanvas.width = w;
+            contexts[key].filteredCanvas.height = h;
+            contexts[key].original.drawImage(sourceImage, 0, 0, w, h);
+        }
+        
+        const firstKey = Object.keys(contexts)[0];
+        if (firstKey) {
+            originalImageData = contexts[firstKey].original.getImageData(0, 0, w, h);
+            applyAllFilters();
+        }
+    }
+
+    function applyAllFilters() {
+        applyGrayscale();
+        applyInvert();
+        applyBlur();
+        applyEdges();
+    }
+
+    function applyGrayscale() {
+        if (!originalImageData) return;
+        const data = new Uint8ClampedArray(originalImageData.data);
+        for (let i = 0; i < data.length; i += 4) {
+            const r = data[i];
+            const g = data[i + 1];
+            const b = data[i + 2];
+            const gray = 0.299 * r + 0.587 * g + 0.114 * b;
+            data[i] = data[i + 1] = data[i + 2] = gray;
+        }
+        const newImageData = new ImageData(data, originalImageData.width, originalImageData.height);
+        contexts.grayscale.filtered.putImageData(newImageData, 0, 0);
+    }
+
+    function applyInvert() {
+        if (!originalImageData) return;
+        const data = new Uint8ClampedArray(originalImageData.data);
+        for (let i = 0; i < data.length; i += 4) {
+            data[i] = 255 - data[i];     // R
+            data[i + 1] = 255 - data[i + 1]; // G
+            data[i + 2] = 255 - data[i + 2]; // B
+        }
+        const newImageData = new ImageData(data, originalImageData.width, originalImageData.height);
+        contexts.invert.filtered.putImageData(newImageData, 0, 0);
+    }
+    
+    function applyBlur() {
+        if (!originalImageData) return;
+        const radius = parseInt(document.getElementById('blur-slider').value);
+        document.getElementById('blur-value').textContent = radius;
+        
+        const src = originalImageData;
+        const dstData = new Uint8ClampedArray(src.data);
+        const dst = new ImageData(dstData, src.width, src.height);
+
+        const w = src.width;
+        const h = src.height;
+        const r = radius;
+
+        for (let y = 0; y < h; y++) {
+            for (let x = 0; x < w; x++) {
+                let r_sum = 0, g_sum = 0, b_sum = 0, count = 0;
+                for (let ky = -r; ky <= r; ky++) {
+                    for (let kx = -r; kx <= r; kx++) {
+                        const px = Math.min(w - 1, Math.max(0, x + kx));
+                        const py = Math.min(h - 1, Math.max(0, y + ky));
+                        const i = (py * w + px) * 4;
+                        r_sum += src.data[i];
+                        g_sum += src.data[i + 1];
+                        b_sum += src.data[i + 2];
+                        count++;
+                    }
+                }
+                const i_dst = (y * w + x) * 4;
+                dst.data[i_dst] = r_sum / count;
+                dst.data[i_dst + 1] = g_sum / count;
+                dst.data[i_dst + 2] = b_sum / count;
+                dst.data[i_dst + 3] = 255;
+            }
+        }
+        contexts.blur.filtered.putImageData(dst, 0, 0);
+    }
+
+    let sobelData = null;
+    function precomputeSobel() {
+        if (!originalImageData) return;
+        const grayData = new Uint8ClampedArray(originalImageData.data.length / 4);
+        const magnitude = new Float32Array(originalImageData.data.length / 4);
+        
+        for (let i = 0, j = 0; i < originalImageData.data.length; i += 4, j++) {
+            const r = originalImageData.data[i];
+            const g = originalImageData.data[i + 1];
+            const b = originalImageData.data[i + 2];
+            grayData[j] = 0.299 * r + 0.587 * g + 0.114 * b;
+        }
+
+        const w = originalImageData.width;
+        const h = originalImageData.height;
+
+        for (let y = 1; y < h - 1; y++) {
+            for (let x = 1; x < w - 1; x++) {
+                const i = y * w + x;
+                const gx = (grayData[i - w - 1] + 2 * grayData[i - 1] + grayData[i + w - 1]) -
+                           (grayData[i - w + 1] + 2 * grayData[i + 1] + grayData[i + w + 1]);
+                const gy = (grayData[i - w - 1] + 2 * grayData[i - w] + grayData[i - w + 1]) -
+                           (grayData[i + w - 1] + 2 * grayData[i + w] + grayData[i + w + 1]);
+                magnitude[i] = Math.sqrt(gx * gx + gy * gy);
+            }
+        }
+        sobelData = magnitude;
+    }
+
+    function applyEdges() {
+        if (!sobelData) return;
+        const lowThresh = parseInt(document.getElementById('canny-low').value);
+        const highThresh = parseInt(document.getElementById('canny-high').value);
+        document.getElementById('canny-low-value').textContent = lowThresh;
+        document.getElementById('canny-high-value').textContent = highThresh;
+
+        const data = new Uint8ClampedArray(originalImageData.data.length);
+        for (let i = 0, j = 0; i < data.length; i += 4, j++) {
+            const mag = sobelData[j];
+            const color = mag > highThresh ? 255 : (mag > lowThresh ? 128 : 0);
+            if (color > 0) {
+                data[i] = 0; data[i + 1] = 0; data[i + 2] = 0; data[i + 3] = 255;
+            } else {
+                data[i] = 255; data[i + 1] = 255; data[i + 2] = 255; data[i + 3] = 255;
+            }
+        }
+        const newImageData = new ImageData(data, originalImageData.width, originalImageData.height);
+        contexts.edges.filtered.putImageData(newImageData, 0, 0);
+    }
+    
+    document.getElementById('blur-slider').addEventListener('input', applyBlur);
+    document.getElementById('canny-low').addEventListener('input', applyEdges);
+    document.getElementById('canny-high').addEventListener('input', applyEdges);
+
+    if (sourceImage.complete) {
+        initializeCanvases();
+        precomputeSobel();
+        applyEdges();
+    } else {
+        sourceImage.onload = () => {
+            initializeCanvases();
+            precomputeSobel();
+            applyEdges();
+        };
+    }
+
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                const id = entry.target.getAttribute('id');
+                navLinks.forEach(link => {
+                    link.classList.toggle('active', link.getAttribute('href') === `#${id}`);
+                });
+            }
+        });
+    }, { rootMargin: '-50% 0px -50% 0px', threshold: 0 });
+
+    sections.forEach(section => {
+        observer.observe(section);
+    });
+    
+    navLinks.forEach(link => {
+        link.addEventListener('click', (e) => {
+            e.preventDefault();
+            const targetId = link.getAttribute('href');
+            document.querySelector(targetId).scrollIntoView({ behavior: 'smooth' });
+        });
+    });
+});
+</script>
+
+</body>
+</html>
